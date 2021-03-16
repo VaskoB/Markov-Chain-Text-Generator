@@ -1,0 +1,101 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+namespace MarkovChainTextGenerator
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine(Markov("file.txt", 2, 20));
+        }
+
+        static string Join(string a, string b)
+        {
+            return a + " " + b;
+        }
+
+        static string Markov(string filePath, int prefixSize, int textSize)
+        {
+            if(prefixSize < 1) //If the prefix size is < 1, throw an exception
+            {
+                throw new ArgumentException("Key size can't be less than 1");
+            }
+
+            string text; //The text will be assigned to this variable
+
+            using(StreamReader reader = new StreamReader(filePath)) //Reads the whole text file and assigns it to the varialbe
+            {
+                text = reader.ReadToEnd();
+            }
+
+            var words = text.Split(); //Variable that will hold every single word
+
+            if(textSize < prefixSize || words.Length < textSize) //if the text size is lower than the prefix size or the words combined are less than the desired text size, throw an exception
+            {
+                throw new ArgumentException("Text size is out of range.");
+            }
+
+            Dictionary<string, List<string>> dict = new Dictionary<string, List<string>>(); //will hold possible suffixes for each prefix
+
+            for(int i = 0; i < words.Length - prefixSize; i++) //Creates a prefix and an approriate suffix for the prefix
+            {
+                //Test Case: I = 0 ; prefixSize = 3
+                var newPrefix = words.Skip(i).Take(prefixSize).Aggregate(Join); //Creates the first prefix ; Essentially prefix = the first 3 words in the text 
+
+                string suffix; //A variable that will hold the suffix for the prefix ; Essentially a word that comes after the first 3 words in the text
+
+                if(i + prefixSize < words.Length) 
+                {
+                    suffix = words[i + prefixSize]; //The suffix is always the next word (4th) after each prefix (3 words long)
+                }
+                else //If the I + prefixSize < words.Length do that; Example: I (197) + prefixSize (3) < words.Length (200) - prefixSize (3) =  200 <= 197, there are no 198th, 199th and 200th word so there can't be a possible suffix and etc.
+                {
+                    suffix = ""; //Ends the prefix and suffix creation cycle
+                }
+
+                if(dict.ContainsKey(newPrefix)) //If the prefix exists
+                {
+                    dict[newPrefix].Add(suffix); //Add a possible suffix 
+                }
+                else //If the prefix doesn't exist
+                {
+                    dict.Add(newPrefix, new List<string>() { suffix }); //Add the prefix and assigns its possible suffix
+                }
+            }   
+
+            Random rand = new Random();
+            List<string> output = new List<string>();
+            int n = 0;
+            int random = rand.Next(dict.Count); //Rolls a random number from the dictionary; each number equals an already existing preffix ; Test Case: random rolls 60
+            string randomPrefix = dict.Keys.Skip(random).Take(1).Single(); //Gets the prefix on position[random]
+            output.AddRange(randomPrefix.Split());
+
+            while(true)
+            {
+                var suffix = dict[randomPrefix]; //suffix equals all the possible suffixes for the given prefix; Example: prefix = then he , suffixes = dipped; struck; gave; politely; it can be either one of them: then he ... 1-4
+                if(suffix.Count == 1) //if there is only 1 suffix available to the random prefix
+                {
+                    if(suffix[0] == "")
+                    {
+                        return output.Aggregate(Join); 
+                    }
+                    output.Add(suffix[0]); //add the suffix to the text
+                }
+                else //if there's more than 1 suffixes available for a prefix
+                {
+                    random = rand.Next(suffix.Count); //rolls from 0-suffix count; Example: the prefix has 4 suffixes, roll 0-3
+                    output.Add(suffix[random]); //rolls 0, the suffix = the first value in the dictionarys' key
+                }
+                if(output.Count >= textSize) //if we've reached the size of the desired text, stop the program and return the randomly created text
+                {
+                    return output.Take(textSize).Aggregate(Join);
+                }
+                n++;
+                randomPrefix = output.Skip(n).Take(prefixSize).Aggregate(Join); //output = then he dipped -> randomPrefix was = then he, but is now equal to = he dipped, then it will combine the 2 words and search for its suffixes
+            }
+        }
+    }
+}
